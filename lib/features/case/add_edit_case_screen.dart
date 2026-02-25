@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../database/app_database.dart';
 import '../../utils/constants.dart';
+import '../../widgets/feedback_overlay.dart';
 
 /// Full-screen Add/Edit Case modal. Title required; Cancel confirms if dirty.
 class AddEditCaseScreen extends StatefulWidget {
@@ -28,10 +29,6 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
   final _courtroomController = TextEditingController();
   final _clientNameController = TextEditingController();
   final _clientPhoneController = TextEditingController();
-  final _clientCnicController = TextEditingController();
-  final _clientAddressController = TextEditingController();
-  final _oppositePartyController = TextEditingController();
-  final _oppositeCounselController = TextEditingController();
   final _notesController = TextEditingController();
 
   String? _caseType;
@@ -72,10 +69,6 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
     _courtroomController.text = c.courtroomNumber ?? '';
     _clientNameController.text = c.clientName ?? '';
     _clientPhoneController.text = c.clientPhone ?? '';
-    _clientCnicController.text = c.clientCnic ?? '';
-    _clientAddressController.text = c.clientAddress ?? '';
-    _oppositePartyController.text = c.oppositeParty ?? '';
-    _oppositeCounselController.text = c.oppositeCounsel ?? '';
     _notesController.text = c.notes ?? '';
     _caseType = c.caseType;
     _status = c.status;
@@ -98,10 +91,6 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
     _courtroomController.dispose();
     _clientNameController.dispose();
     _clientPhoneController.dispose();
-    _clientCnicController.dispose();
-    _clientAddressController.dispose();
-    _oppositePartyController.dispose();
-    _oppositeCounselController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -146,9 +135,7 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Case title is required')),
-      );
+      showErrorFeedback(context, 'Case title is required');
       return;
     }
     final now = DateTime.now().toIso8601String();
@@ -161,10 +148,6 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
         final room = _courtroomController.text.trim();
         final clientName = _clientNameController.text.trim();
         final clientPhone = _clientPhoneController.text.trim();
-        final clientCnic = _clientCnicController.text.trim();
-        final clientAddr = _clientAddressController.text.trim();
-        final oppParty = _oppositePartyController.text.trim();
-        final oppCounsel = _oppositeCounselController.text.trim();
         final notes = _notesController.text.trim();
         await AppDatabase.instance.updateCase(c.copyWith(
           title: title,
@@ -177,10 +160,6 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
           courtroomNumber: Value(room.isEmpty ? null : room),
           clientName: Value(clientName.isEmpty ? null : clientName),
           clientPhone: Value(clientPhone.isEmpty ? null : clientPhone),
-          clientCnic: Value(clientCnic.isEmpty ? null : clientCnic),
-          clientAddress: Value(clientAddr.isEmpty ? null : clientAddr),
-          oppositeParty: Value(oppParty.isEmpty ? null : oppParty),
-          oppositeCounsel: Value(oppCounsel.isEmpty ? null : oppCounsel),
           notes: Value(notes.isEmpty ? null : notes),
           updatedAt: now,
         ));
@@ -197,10 +176,6 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
         courtroomNumber: Value(_courtroomController.text.trim().isEmpty ? null : _courtroomController.text.trim()),
         clientName: Value(_clientNameController.text.trim().isEmpty ? null : _clientNameController.text.trim()),
         clientPhone: Value(_clientPhoneController.text.trim().isEmpty ? null : _clientPhoneController.text.trim()),
-        clientCnic: Value(_clientCnicController.text.trim().isEmpty ? null : _clientCnicController.text.trim()),
-        clientAddress: Value(_clientAddressController.text.trim().isEmpty ? null : _clientAddressController.text.trim()),
-        oppositeParty: Value(_oppositePartyController.text.trim().isEmpty ? null : _oppositePartyController.text.trim()),
-        oppositeCounsel: Value(_oppositeCounselController.text.trim().isEmpty ? null : _oppositeCounselController.text.trim()),
         notes: Value(_notesController.text.trim().isEmpty ? null : _notesController.text.trim()),
         createdAt: now,
         updatedAt: now,
@@ -213,6 +188,8 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
       ));
     }
     if (mounted) {
+      final isEdit = widget.caseId != null;
+      showSuccessFeedback(context, isEdit ? 'Case updated' : 'Case "$title" added');
       widget.onSaved?.call();
       Navigator.of(context).pop();
     }
@@ -270,205 +247,237 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
         key: _formKey,
         onChanged: _markDirty,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           children: [
             _section('Basic Information', [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Case Title *',
-                  hintText: 'Required',
+              _shadowed(
+                TextFormField(
+                  controller: _titleController,
+                  decoration: _rounded('Case Title *', hint: 'Required'),
+                  onChanged: (_) => _markDirty(),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Title is required' : null,
                 ),
-                onChanged: (_) => _markDirty(),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Title is required' : null,
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _caseType,
-                decoration: const InputDecoration(labelText: 'Case Type'),
-                items: _caseTypes
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (v) {
-                  setState(() {
-                    _caseType = v;
-                    _markDirty();
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _regNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Case Registration Number',
+              const SizedBox(height: 16),
+              _shadowed(
+                DropdownButtonFormField<String>(
+                  key: ValueKey('caseType_$_caseType'),
+                  initialValue: _caseType,
+                  isExpanded: true,
+                  borderRadius: BorderRadius.circular(20),
+                  dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  decoration: _rounded('Case Type', suffixIcon: const Icon(Icons.arrow_drop_down)),
+                  items: _caseTypes
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _caseType = v;
+                      _markDirty();
+                    });
+                  },
                 ),
-                onChanged: (_) => _markDirty(),
               ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: _pickDate,
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Date Filed'),
-                  child: Text(
-                    _dateFiled != null
-                        ? DateFormat(AppConstants.dateFormatPattern)
-                            .format(_dateFiled!)
-                        : 'Select date',
+              const SizedBox(height: 16),
+              _shadowed(
+                TextFormField(
+                  controller: _regNumberController,
+                  decoration: _rounded('Case Registration Number'),
+                  onChanged: (_) => _markDirty(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _shadowed(
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(28),
+                  child: InputDecorator(
+                    decoration: _rounded('Date Filed', suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20)),
+                    child: Text(
+                      _dateFiled != null
+                          ? DateFormat(AppConstants.dateFormatPattern)
+                              .format(_dateFiled!)
+                          : 'Select date',
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'Active', label: Text('Active')),
-                  ButtonSegment(value: 'Closed', label: Text('Closed')),
-                ],
-                selected: {_status},
-                onSelectionChanged: (s) {
-                  setState(() {
-                    _status = s.first;
-                    _markDirty();
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes / Description',
+              if (widget.caseId != null) ...[
+                const SizedBox(height: 16),
+                _shadowed(
+                  SwitchListTile(
+                    title: const Text('Case Status (Active)'),
+                    subtitle: Text(_status == 'Active' ? 'Case is currently active' : 'Case is resolved/closed'),
+                    value: _status == 'Active',
+                    activeTrackColor: Theme.of(context).colorScheme.primary,
+                    inactiveThumbColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    onChanged: (val) {
+                      setState(() {
+                        _status = val ? 'Active' : 'Closed';
+                        _markDirty();
+                      });
+                    },
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                  ),
                 ),
-                maxLines: 3,
-                onChanged: (_) => _markDirty(),
+              ],
+              const SizedBox(height: 16),
+              _shadowed(
+                TextFormField(
+                  controller: _notesController,
+                  decoration: _rounded('Notes / Description'),
+                  maxLines: 3,
+                  onChanged: (_) => _markDirty(),
+                ),
               ),
             ]),
             _section('Court Details', [
-              DropdownButtonFormField<String>(
-                initialValue: _courtHierarchy,
-                decoration: const InputDecoration(
-                  labelText: 'Court Hierarchy Level',
+                _shadowed(
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('hierarchy_$_courtHierarchy'),
+                    initialValue: _courtHierarchy,
+                    isExpanded: true,
+                  borderRadius: BorderRadius.circular(20),
+                  dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  decoration: _rounded('Court Hierarchy Level', suffixIcon: const Icon(Icons.arrow_drop_down)),
+                  items: _hierarchies
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _courtHierarchy = v;
+                      _courtId = null;
+                      _markDirty();
+                    });
+                  },
                 ),
-                items: _hierarchies
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (v) {
-                  setState(() {
-                    _courtHierarchy = v;
-                    _courtId = null;
-                    _markDirty();
-                  });
-                },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _courtId,
-                      decoration: const InputDecoration(
-                        labelText: 'Court Name',
+                    child: _shadowed(
+                      DropdownButtonFormField<int>(
+                        key: ValueKey('court_$_courtId'),
+                        initialValue: _courtId,
+                        isExpanded: true,
+                        borderRadius: BorderRadius.circular(20),
+                        dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                        decoration: _rounded('Court Name', suffixIcon: const Icon(Icons.arrow_drop_down)),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: null,
+                            child: Text('-- Select --'),
+                          ),
+                          ..._courts
+                              .where((c) =>
+                                  _courtHierarchy == null ||
+                                  c.hierarchy == _courtHierarchy)
+                              .map((c) => DropdownMenuItem<int>(
+                                    value: c.id,
+                                    child: Text(c.name),
+                                  )),
+                        ],
+                        onChanged: (v) {
+                          setState(() {
+                            _courtId = v;
+                            _markDirty();
+                          });
+                        },
                       ),
-                      items: [
-                        const DropdownMenuItem<int>(
-                          value: null,
-                          child: Text('-- Select --'),
-                        ),
-                        ..._courts
-                            .where((c) =>
-                                _courtHierarchy == null ||
-                                c.hierarchy == _courtHierarchy)
-                            .map((c) => DropdownMenuItem<int>(
-                                  value: c.id,
-                                  child: Text(c.name),
-                                )),
-                      ],
-                      onChanged: (v) {
-                        setState(() {
-                          _courtId = v;
-                          _markDirty();
-                        });
-                      },
                     ),
                   ),
-                  IconButton(
-                    onPressed: _showAddCourt,
-                    icon: const Icon(Icons.add),
-                    tooltip: 'Add New Court',
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _showAddCourt,
+                      icon: Icon(Icons.add, color: Theme.of(context).colorScheme.onSecondaryContainer),
+                      tooltip: 'Add New Court',
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _benchController,
-                decoration: const InputDecoration(
-                  labelText: 'Bench',
-                  hintText: 'Judge/bench name',
+              const SizedBox(height: 16),
+              _shadowed(
+                TextFormField(
+                  controller: _benchController,
+                  decoration: _rounded('Bench', hint: 'Judge/bench name'),
+                  onChanged: (_) => _markDirty(),
                 ),
-                onChanged: (_) => _markDirty(),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _courtroomController,
-                decoration: const InputDecoration(
-                  labelText: 'Courtroom Number',
+              const SizedBox(height: 16),
+              _shadowed(
+                TextFormField(
+                  controller: _courtroomController,
+                  decoration: _rounded('Courtroom Number'),
+                  onChanged: (_) => _markDirty(),
                 ),
-                onChanged: (_) => _markDirty(),
               ),
             ]),
             _section('Client Details', [
-              TextFormField(
-                controller: _clientNameController,
-                decoration: const InputDecoration(labelText: 'Client Name'),
-                onChanged: (_) => _markDirty(),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _clientPhoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Client Contact Number',
+              _shadowed(
+                TextFormField(
+                  controller: _clientNameController,
+                  decoration: _rounded('Client Name'),
+                  onChanged: (_) => _markDirty(),
                 ),
-                onChanged: (_) => _markDirty(),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _clientCnicController,
-                decoration: const InputDecoration(
-                  labelText: 'Client CNIC',
-                  hintText: 'XXXXX-XXXXXXX-X',
+              const SizedBox(height: 16),
+              _shadowed(
+                TextFormField(
+                  controller: _clientPhoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: _rounded('Client Contact Number'),
+                  onChanged: (_) => _markDirty(),
                 ),
-                onChanged: (_) => _markDirty(),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _clientAddressController,
-                decoration: const InputDecoration(
-                  labelText: 'Client Address',
-                ),
-                maxLines: 2,
-                onChanged: (_) => _markDirty(),
               ),
             ]),
-            _section('Opposite Party', [
-              TextFormField(
-                controller: _oppositePartyController,
-                decoration: const InputDecoration(
-                  labelText: 'Opposite Party Name',
-                ),
-                onChanged: (_) => _markDirty(),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _oppositeCounselController,
-                decoration: const InputDecoration(
-                  labelText: 'Opposite Counsel Name',
-                ),
-                onChanged: (_) => _markDirty(),
-              ),
-            ]),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _shadowed(Widget child) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  /// Rounded pill-shaped InputDecoration matching the home search bar style.
+  InputDecoration _rounded(String label, {String? hint, Widget? suffixIcon}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      suffixIcon: suffixIcon,
+      fillColor: Colors.transparent, // background comes from _shadowed
+      filled: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(28),
+        borderSide: BorderSide.none, // Removes default border, using shadowed container instead
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(28),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
     );
   }
@@ -479,14 +488,28 @@ class _AddEditCaseScreenState extends State<AddEditCaseScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 12),
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
           ),
-          const SizedBox(height: 12),
-          ...children,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withAlpha(60)),
+              color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ),
         ],
       ),
     );
@@ -521,15 +544,11 @@ class _AddCourtDialogState extends State<_AddCourtDialog> {
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Court name is required')),
-      );
+      showErrorFeedback(context, 'Court name is required');
       return;
     }
     if (_hierarchy == null || _hierarchy!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select hierarchy')),
-      );
+      showErrorFeedback(context, 'Select court hierarchy');
       return;
     }
     final id = await AppDatabase.instance.insertCourt(CourtsCompanion.insert(
@@ -550,6 +569,7 @@ class _AddCourtDialogState extends State<_AddCourtDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
+              key: ValueKey('newCourt_$_hierarchy'),
               initialValue: _hierarchy,
               decoration: const InputDecoration(labelText: 'Hierarchy'),
               items: widget.hierarchies

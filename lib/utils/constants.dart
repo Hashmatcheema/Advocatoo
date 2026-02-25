@@ -26,6 +26,11 @@ class AppConstants {
   static const String keyProfilePhone = 'profile_phone';
   static const String keyProfileEmail = 'profile_email';
   static const String keyProfilePhotoPath = 'profile_photo_path';
+  static const String keyReminderHour = 'reminder_hour';
+  static const String keyReminderMinute = 'reminder_minute';
+  static const String keyExcludedDays = 'excluded_days';
+  static const String keyDateFormat = 'date_format';
+  static const String keyUse24hTime = 'use_24h_time';
 
   /// Large text scale factor (SRD: 20% increase).
   static const double largeTextScaleFactor = 1.2;

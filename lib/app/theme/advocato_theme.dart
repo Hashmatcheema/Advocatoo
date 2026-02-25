@@ -42,8 +42,32 @@ ThemeData buildAdvocatoDarkTheme() {
       inputDecoratorRadius: 16,
     ),
   );
+  final darkScheme = base.colorScheme;
   final withSurface = base.copyWith(
     scaffoldBackgroundColor: const Color(0xFF121212),
+    // Fix dark-mode SegmentedButton: white text on selected segments.
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return Colors.white;
+          }
+          return darkScheme.onSurface;
+        }),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return darkScheme.primary;
+          }
+          return Colors.transparent;
+        }),
+      ),
+    ),
+    // Fix dark-mode FilledButton: white text.
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        foregroundColor: Colors.white,
+      ),
+    ),
   );
   return _applyTypography(withSurface);
 }

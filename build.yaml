@@ -1,0 +1,7 @@
+targets:
+  $default:
+    builders:
+      drift_dev|drift_dev:
+        options:
+          generate_connect_constructor: true
+          schema_dir: "drift_schemas"

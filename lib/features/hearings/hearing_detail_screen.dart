@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../database/app_database.dart';
 import '../../utils/constants.dart';
+import '../case/case_detail_screen.dart';
 import 'add_edit_hearing_screen.dart';
 
 /// Hearing detail: view, edit, delete.
@@ -151,6 +152,18 @@ class _HearingDetailScreenState extends State<HearingDetailScreen> {
           _row('Purpose', h.purpose ?? '—'),
           if (h.outcome != null && h.outcome!.isNotEmpty) _row('Outcome', h.outcome!),
           if (h.notes != null && h.notes!.isNotEmpty) _row('Notes', h.notes!),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CaseDetailScreen(caseId: widget.caseId),
+                ),
+              );
+            },
+            icon: const Icon(Icons.folder_open_rounded),
+            label: const Text('View Case Details'),
+          ),
         ],
       ),
     );

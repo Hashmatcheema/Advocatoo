@@ -96,11 +96,14 @@ class AppDatabase extends _$AppDatabase {
 
   /// For tests only: init with an in-memory (or other) executor to avoid path_provider.
   static void initForTest(QueryExecutor executor) {
-    _instance = AppDatabase._(executor);
+    _instance = AppDatabase.forTesting(executor);
   }
 
+  /// For tests only: init with an in-memory (or other) executor.
+  AppDatabase.forTesting(super.executor);
+
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -115,6 +118,14 @@ class AppDatabase extends _$AppDatabase {
           if (from < 4) {
             await migrator.createTable(activityLog);
             await migrator.createTable(notificationHistory);
+          }
+          if (from < 5) {
+            // Performance indexes.
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_hearings_case_id ON hearings(case_id)');
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_hearings_date ON hearings(hearing_date)');
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status)');
+            // UNIQUE constraint: one hearing per case per day (SRD §7.3).
+            await customStatement('CREATE UNIQUE INDEX IF NOT EXISTS idx_hearings_unique_per_day ON hearings(case_id, hearing_date)');
           }
         },
       );
@@ -149,23 +160,33 @@ class AppDatabase extends _$AppDatabase {
     String? courtLevel,
     String? status,
   }) async {
-    var list = await select(cases).get();
-    if (searchQuery != null && searchQuery.isNotEmpty) {
-      final q = searchQuery.trim().toLowerCase();
-      list = list.where((c) => c.title.toLowerCase().contains(q)).toList();
-    }
-    if (caseType != null && caseType.isNotEmpty) {
-      list = list.where((c) => c.caseType == caseType).toList();
-    }
-    if (status != null && status.isNotEmpty) {
-      list = list.where((c) => c.status == status).toList();
-    }
+    final query = select(cases);
+
+    query.where((c) {
+      Expression<bool> predicate = const Constant(true);
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final q = '%${searchQuery.trim().toLowerCase()}%';
+        predicate = predicate & c.title.lower().like(q);
+      }
+      if (caseType != null && caseType.isNotEmpty) {
+        predicate = predicate & c.caseType.equals(caseType);
+      }
+      if (status != null && status.isNotEmpty) {
+        predicate = predicate & c.status.equals(status);
+      }
+
+      return predicate;
+    });
+
+    var list = await query.get();
+
+    // Court-level filter requires a secondary lookup (JOIN isn't trivial with drift simple API).
     if (courtLevel != null && courtLevel.isNotEmpty) {
-      final courtIds = await (select(courts)..where((t) => t.hierarchy.equals(courtLevel)))
-          .get()
-          .then((l) => l.map((c) => c.id).toSet());
+      final courtIds = await getCourtIdsByHierarchy(courtLevel);
       list = list.where((c) => c.courtId != null && courtIds.contains(c.courtId)).toList();
     }
+
     return list;
   }
 

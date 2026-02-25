@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../services/profile_service.dart';
 import '../../utils/constants.dart';
+import '../../widgets/feedback_overlay.dart';
 import 'profile_photo_io.dart' if (dart.library.html) 'profile_photo_stub.dart' as photo;
 
 /// Profile screen: photo, name, bar number, specialisation, contact (Increment 6).
@@ -21,6 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   bool _loading = true;
+  bool _dirty = false;
   String? _photoPath;
   final _imagePicker = ImagePicker();
 
@@ -81,7 +83,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final XFile? file = await _imagePicker.pickImage(source: source, imageQuality: 85);
     if (file == null || !mounted) return;
     final path = await photo.profileSavePickedFile(file.path);
-    if (mounted && path != null) setState(() => _photoPath = path);
+    if (mounted && path != null) {
+      setState(() => _photoPath = path);
+      _dirty = true;
+    }
   }
 
   Future<void> _save() async {
@@ -94,10 +99,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       photoPath: _photoPath,
     );
     await ProfileService.instance.saveProfile(profile);
+    _dirty = false;
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile saved')),
-      );
+      showSuccessFeedback(context, 'Profile saved');
     }
   }
 
@@ -109,16 +113,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('Save'),
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Discard changes?'),
+            content: const Text('You have unsaved changes.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Keep')),
+              TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Discard')),
+            ],
           ),
-        ],
-      ),
+        );
+        if (ok == true && context.mounted) Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Profile'),
+          actions: [
+            TextButton(
+              onPressed: _save,
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       body: ListView(
         padding: const EdgeInsets.all(AppConstants.screenPadding),
         children: [
@@ -196,6 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }

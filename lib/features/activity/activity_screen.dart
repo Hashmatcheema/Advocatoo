@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
 import '../../database/app_database.dart';
@@ -33,8 +34,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final db = AppDatabase.instance;
     final upcoming = await db.getUpcomingHearings();
     final overdue = await db.getOverdueHearings();
-    final activity = await db.getRecentActivityLog(limit: 30);
-    final notifications = await db.getNotificationHistory(limit: 50);
+    final activity = await db.getRecentActivityLog(limit: 10);
+    final notifications = await db.getNotificationHistory(limit: 5);
     final caseIds = {...upcoming.map((h) => h.caseId), ...overdue.map((h) => h.caseId)};
     final titles = <int, String>{};
     for (final id in caseIds) {
@@ -118,7 +119,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _openHearing(h),
                   ),
-                );
+                ).animate().fadeIn(duration: 200.ms, delay: (index * 40).ms).slideY(begin: 0.05, end: 0, duration: 200.ms);
               },
             ),
     );
@@ -147,7 +148,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _openHearing(h),
                   ),
-                );
+                ).animate().fadeIn(duration: 200.ms, delay: (index * 40).ms);
               },
             ),
     );
@@ -211,9 +212,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   dense: true,
                   leading: Icon(Icons.notifications, size: 20, color: Theme.of(context).colorScheme.primary),
                   title: Text(
-                    n.summary.length > 80 ? '${n.summary.substring(0, 77)}...' : n.summary,
+                    n.summary,
                     style: Theme.of(context).textTheme.bodySmall,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(dateStr, style: Theme.of(context).textTheme.bodySmall),

@@ -8,7 +8,8 @@ plugins {
 android {
     namespace = "com.example.advocatoo"
     compileSdk = flutter.compileSdkVersion
-
+    ndkVersion = "28.2.13676358"
+    
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17

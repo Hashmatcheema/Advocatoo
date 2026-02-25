@@ -75,9 +75,13 @@ class NotificationService {
     return buffer.toString().trim();
   }
 
-  /// Schedule daily reminders at 07:00 for the next 6 weekdays (Mon–Sat).
-  /// Call when app opens and when user enables notifications. Cancels existing first.
-  Future<void> scheduleDailyReminders() async {
+  /// Schedule daily reminders for the next 6 allowed weekdays.
+  /// [hour] and [minute] are the notification time; [excludedDays] are skipped.
+  Future<void> scheduleDailyReminders({
+    int hour = AppConstants.reminderHour,
+    int minute = AppConstants.reminderMinute,
+    Set<int> excludedDays = const {DateTime.sunday},
+  }) async {
     if (kIsWeb) return;
     if (!_initialized) return;
 
@@ -87,16 +91,13 @@ class NotificationService {
     final now = tz.TZDateTime.now(tz.local);
     final today = DateTime(now.year, now.month, now.day);
 
-    // Next 6 weekdays (skip Sunday)
+    // Next 6 weekdays (skip excluded days)
     final weekdays = <DateTime>[];
     for (var i = 0; weekdays.length < 6; i++) {
       final d = today.add(Duration(days: i));
-      if (d.weekday == DateTime.sunday) continue;
+      if (excludedDays.contains(d.weekday)) continue;
       weekdays.add(d);
     }
-
-    const hour = AppConstants.reminderHour;
-    const minute = AppConstants.reminderMinute;
 
     for (var i = 0; i < weekdays.length; i++) {
       final day = weekdays[i];

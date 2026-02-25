@@ -33,7 +33,12 @@ class _SplashScreenState extends State<SplashScreen> {
     final stopwatch = Stopwatch()..start();
 
     await AppDatabase.init();
-    await NotificationService.instance.init();
+    try {
+      await NotificationService.instance.init();
+    } catch (_) {
+      // Skip if plugin not available (e.g., in widget tests on host machine).
+    }
+
 
     final themeMode = await ThemeService.instance.getThemeMode();
     final largeText = await ThemeService.instance.getLargeTextEnabled();

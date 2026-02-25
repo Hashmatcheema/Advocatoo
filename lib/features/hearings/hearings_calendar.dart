@@ -31,6 +31,8 @@ class _HearingsCalendarState extends State<HearingsCalendar> {
     return TableCalendar<void>(
       firstDay: DateTime.utc(2020, 1, 1),
       lastDay: DateTime.utc(2035, 12, 31),
+      calendarFormat: CalendarFormat.month,
+      availableCalendarFormats: const {CalendarFormat.month: 'Month'},
       focusedDay: _focusedDay,
       selectedDayPredicate: (d) => isSameDay(widget.selectedDay, d),
       onDaySelected: (selected, focused) {

@@ -3113,6 +3113,8 @@ class NotificationHistoryCompanion
 
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
+  // ignore: unused_element - base class constructor for Drift
+  _$AppDatabase.connect(DatabaseConnection c) : super.connect(c);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $CourtsTable courts = $CourtsTable(this);
   late final $CasesTable cases = $CasesTable(this);

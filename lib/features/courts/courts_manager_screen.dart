@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../database/app_database.dart';
+import '../../widgets/feedback_overlay.dart';
 
 /// Courts Manager: list, add, edit, delete courts. Warns when deleting a court linked to cases.
 class CourtsManagerScreen extends StatelessWidget {
@@ -23,8 +25,17 @@ class CourtsManagerScreen extends StatelessWidget {
           }
           final courts = snapshot.data ?? [];
           if (courts.isEmpty) {
-            return const Center(
-              child: Text('No courts yet. Tap + to add one.'),
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.account_balance_outlined, size: 64, color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(height: 16),
+                  Text('No courts yet', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text('Tap + to add your first court.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ).animate().fadeIn(duration: 300.ms),
             );
           }
           return ListView.separated(
@@ -44,16 +55,18 @@ class CourtsManagerScreen extends StatelessWidget {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Edit court',
                         onPressed: () => _showAddEditCourtDialog(context, court: court),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Delete court',
                         onPressed: () => _confirmDeleteCourt(context, court),
                       ),
                     ],
                   ),
                 ),
-              );
+              ).animate().fadeIn(duration: 200.ms, delay: (index * 40).ms).slideX(begin: 0.05, end: 0, duration: 200.ms);
             },
           );
         },
@@ -66,7 +79,6 @@ class CourtsManagerScreen extends StatelessWidget {
   }
 
   Future<void> _showAddEditCourtDialog(BuildContext context, {Court? court}) async {
-    final messenger = ScaffoldMessenger.of(context);
     final result = await showDialog<Court>(
       context: context,
       builder: (ctx) => _AddEditCourtDialog(
@@ -75,14 +87,11 @@ class CourtsManagerScreen extends StatelessWidget {
       ),
     );
     if (result != null && context.mounted) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(court == null ? 'Court added' : 'Court updated')),
-      );
+      showSuccessFeedback(context, court == null ? 'Court added' : 'Court updated');
     }
   }
 
   Future<void> _confirmDeleteCourt(BuildContext context, Court court) async {
-    final messenger = ScaffoldMessenger.of(context);
     final count = await AppDatabase.instance.countCasesByCourtId(court.id);
     if (!context.mounted) return;
     final confirm = await showDialog<bool>(
@@ -111,9 +120,9 @@ class CourtsManagerScreen extends StatelessWidget {
     );
     if (confirm != true) return;
     await AppDatabase.instance.deleteCourt(court);
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Court deleted')),
-    );
+    if (context.mounted) {
+      showSuccessFeedback(context, 'Court "${court.name}" deleted');
+    }
   }
 }
 
@@ -157,15 +166,11 @@ class _AddEditCourtDialogState extends State<_AddEditCourtDialog> {
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Court name is required')),
-      );
+      showErrorFeedback(context, 'Court name is required');
       return;
     }
     if (_hierarchy == null || _hierarchy!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select hierarchy')),
-      );
+      showErrorFeedback(context, 'Select hierarchy');
       return;
     }
     final db = AppDatabase.instance;

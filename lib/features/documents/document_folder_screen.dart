@@ -289,41 +289,44 @@ class _ImageGridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      key: key,
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          InkWell(
-            onTap: onTap,
-            child: _buildThumbnail(),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Material(
-              color: Colors.black54,
-              shape: const CircleBorder(),
-              child: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
-                onPressed: onDelete,
+    return SizedBox(
+      height: 200,
+      child: Card(
+        key: key,
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InkWell(
+              onTap: onTap,
+              child: _buildThumbnail(),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                  onPressed: onDelete,
+                ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 4,
-            left: 4,
-            child: ReorderableDragStartListener(
-              index: index,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.drag_handle, color: Colors.white, size: 20),
+            Positioned(
+              bottom: 4,
+              left: 4,
+              child: ReorderableDragStartListener(
+                index: index,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.drag_handle, color: Colors.white, size: 20),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

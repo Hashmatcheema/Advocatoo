@@ -1,50 +1,25 @@
-import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
-import 'features/activity/activity_screen.dart';
-import 'features/hearings/hearings_screen.dart';
-import 'features/home/home_screen.dart';
-import 'features/menu/menu_placeholder_screen.dart';
 import 'features/menu/quadrant_menu.dart';
 import 'widgets/animated_add_case_fab.dart';
 
-/// Bottom nav shell with 4 tabs; Menu tab opens hamburger panel from bottom-left.
+/// Bottom nav shell with 4 tabs managed by go_router StatefulShellRoute.
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
-    required this.themeMode,
-    required this.largeTextMode,
-    required this.onThemeModeChanged,
-    required this.onLargeTextChanged,
-    required this.onNavigateToProfile,
-    required this.onNavigateToCourtsManager,
-    required this.onNavigateToSettings,
-    required this.onNavigateToFaqs,
-    required this.onNavigateToAbout,
-    required this.onNavigateToSendFeedback,
-    required this.onAddCase,
-    required this.onDashboardTap,
+    required this.navigationShell,
   });
 
-  final ThemeMode themeMode;
-  final bool largeTextMode;
-  final ValueChanged<ThemeMode> onThemeModeChanged;
-  final ValueChanged<bool> onLargeTextChanged;
-  final VoidCallback onNavigateToProfile;
-  final VoidCallback onNavigateToCourtsManager;
-  final VoidCallback onNavigateToSettings;
-  final VoidCallback onNavigateToFaqs;
-  final VoidCallback onNavigateToAbout;
-  final VoidCallback onNavigateToSendFeedback;
-  final VoidCallback onAddCase;
-  final VoidCallback onDashboardTap;
+  final StatefulNavigationShell navigationShell;
 
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
-  int _currentIndex = 0;
   bool _menuOpen = false;
 
   void _onTabTapped(int index) {
@@ -52,123 +27,119 @@ class _AppShellState extends State<AppShell> {
       _openQuadrantMenu();
       return;
     }
-    setState(() => _currentIndex = index);
+    // Always navigate to the tab's root so Home/Hearings/Activity reset when switching.
+    widget.navigationShell.goBranch(index, initialLocation: true);
   }
 
   void _openQuadrantMenu() {
     setState(() => _menuOpen = true);
-    showQuadrantMenu(
+    // Menu tab in go_router branch 3 is just a placeholder visually,
+    // we don't actually goBranch(3) here to keep the background screen active.
+    
+    // We pass the root context to pop so that we don't run into deactivated widget issues.
+    showMenuPanel(
       context: context,
-      child: QuadrantMenuContent(
-        onClose: () => Navigator.of(context).pop(),
-        themeMode: widget.themeMode,
-        largeTextMode: widget.largeTextMode,
-        onThemeModeChanged: widget.onThemeModeChanged,
-        onLargeTextChanged: widget.onLargeTextChanged,
-        onProfile: () {
-          Navigator.of(context).pop();
-          widget.onNavigateToProfile();
-        },
-        onCourtsManager: () {
-          Navigator.of(context).pop();
-          widget.onNavigateToCourtsManager();
-        },
-        onSettings: () {
-          Navigator.of(context).pop();
-          widget.onNavigateToSettings();
-        },
-        onFaqs: () {
-          Navigator.of(context).pop();
-          widget.onNavigateToFaqs();
-        },
-        onAbout: () {
-          Navigator.of(context).pop();
-          widget.onNavigateToAbout();
-        },
-        onSendFeedback: () {
-          Navigator.of(context).pop();
-          widget.onNavigateToSendFeedback();
-        },
-        appVersion: '1.0.0',
-      ),
-    ).then((_) {
+      child: Builder(builder: (dialogContext) {
+        return MenuPanelContent(
+          onClose: () => Navigator.of(dialogContext).pop(),
+          onProfile: () => Navigator.of(dialogContext).pop('/profile'),
+          onCourtsManager: () => Navigator.of(dialogContext).pop('/courts'),
+          onSettings: () => Navigator.of(dialogContext).pop('/settings'),
+          onFaqs: () => Navigator.of(dialogContext).pop('/faqs'),
+          onAbout: () => Navigator.of(dialogContext).pop('/about'),
+          onSendFeedback: () => Navigator.of(dialogContext).pop('/feedback'),
+          appVersion: '1.0.0',
+        );
+      }),
+    ).then((routePath) {
       if (mounted) {
         setState(() {
           _menuOpen = false;
-          _currentIndex = 0;
         });
+        if (routePath != null && routePath.isNotEmpty) {
+          // Delaying slightly to allow the dialog pop to finalize its animation,
+          // though not strictly necessary, it prevents hero/routing race conditions.
+          Future.microtask(() {
+            if (mounted) context.push(routePath);
+          });
+        }
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final largeText = widget.largeTextMode;
-    return Scaffold(
-      body: Stack(
-        children: [
-          PageTransitionSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (
-              Widget child,
-              Animation<double> primaryAnimation,
-              Animation<double> secondaryAnimation,
-            ) {
-              return FadeThroughTransition(
-                animation: primaryAnimation,
-                secondaryAnimation: secondaryAnimation,
-                child: child,
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey<int>(_currentIndex),
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [
-                  HomeScreen(
-                    onProfileTap: widget.onNavigateToProfile,
-                    onDashboardTap: widget.onDashboardTap,
-                    onAddCase: widget.onAddCase,
-                    largeText: largeText,
-                  ),
-                  HearingsScreen(largeText: largeText),
-                  ActivityScreen(largeText: largeText),
-                  MenuPlaceholderScreen(largeText: largeText),
-                ],
-              ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+
+    // Status-bar background: black in light mode, white in dark mode.
+    // Icon brightness is automatically inverted to remain legible.
+    final statusBarColor = isDark ? Colors.white : Colors.black;
+
+    final statusBarStyle = isDark
+        ? SystemUiOverlayStyle.dark    // dark icons on white background
+        : SystemUiOverlayStyle.light;  // light icons on black background
+
+    final overlayStyle = statusBarStyle.copyWith(
+      statusBarColor: statusBarColor,
+      // Keep the bottom system nav bar transparent so the app's
+      // bottom NavigationBar blends in naturally.
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        body: widget.navigationShell,
+        floatingActionButton: widget.navigationShell.currentIndex == 0
+            ? AnimatedAddCaseFab(onPressed: () => context.push('/add-case'))
+            : null,
+        bottomNavigationBar: NavigationBar(
+          indicatorColor: Colors.transparent,
+          selectedIndex: _menuOpen ? 3 : widget.navigationShell.currentIndex,
+          onDestinationSelected: _onTabTapped,
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: _buildAnimatedIcon(context, Icons.home),
+              label: 'Home',
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: _currentIndex == 0
-          ? AnimatedAddCaseFab(onPressed: widget.onAddCase)
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _menuOpen ? 3 : _currentIndex,
-        onDestinationSelected: _onTabTapped,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: 'Hearings',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Activity',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu),
-            selectedIcon: Icon(Icons.menu),
-            label: 'Menu',
-          ),
-        ],
+            NavigationDestination(
+              icon: const Icon(Icons.calendar_today_outlined),
+              selectedIcon: _buildAnimatedIcon(context, Icons.calendar_today),
+              label: 'Hearings',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.notifications_outlined),
+              selectedIcon: _buildAnimatedIcon(context, Icons.notifications),
+              label: 'Activity',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.menu),
+              selectedIcon: _buildAnimatedIcon(context, Icons.menu),
+              label: 'Menu',
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildAnimatedIcon(BuildContext context, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onPrimaryContainer,
+      ),
+    )
+    .animate()
+    .scale(duration: 300.ms, curve: Curves.easeOutBack, begin: const Offset(0.7, 0.7))
+    .fade(duration: 200.ms);
   }
 }
